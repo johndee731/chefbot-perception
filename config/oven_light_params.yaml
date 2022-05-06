@@ -1,0 +1,6 @@
+# The params are to be used oven_perception.py for the bounds of the region surrounding the oven light 
+# Change according the the position of oven/oven light
+x_min: 550
+y_min: 800
+x_max: 600
+y_max: 850

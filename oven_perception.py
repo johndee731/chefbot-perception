@@ -21,7 +21,8 @@ from collections import deque
 VIZ = True
 BBOX_THICKNESS = 2
 COLOR = (0, 255, 0)
-ORG = (550, 880)
+# Position for text beneath the bounding box
+ORG = (rospy.get_param("x_min"), rospy.get_param("y_max") + 30)
 DEQUE_SIZE = 30
 
 # 3-tuples are BGR, not RGB format
@@ -78,6 +79,12 @@ class OvenPerception():
             [self.rgb_img_sub], 10)
         self.synchronizer.registerCallback(self.get_image_cb)
 
+        # Bounding box coordinates, pulled from the ROS Parameter Server
+        self.x_min = rospy.get_param("x_min")
+        self.y_min = rospy.get_param("y_min")
+        self.x_max = rospy.get_param("x_max")
+        self.y_max = rospy.get_param("y_max")
+
         # Deque used for sliding window of 30 frames counts
         self.de = deque([0] * 30)
 
@@ -97,7 +104,7 @@ class OvenPerception():
 
         ###################
         
-        stove_masker = StoveLightMasking(self.rgb_image, 800, 850, 550, 600)
+        stove_masker = StoveLightMasking(self.rgb_image, self.y_min, self.y_max, self.x_min, self.x_max)
         filtered_bounding_box_image = stove_masker.get_filtered_image(COLORS["stove_light"]['lower_H'],COLORS["stove_light"]['upper_H'],
                                 COLORS["stove_light"]['lower_S'],COLORS["stove_light"]['upper_S'],
                                 COLORS["stove_light"]['lower_V'],COLORS["stove_light"]['upper_V'])
@@ -120,13 +127,13 @@ class OvenPerception():
             # The oven light is NOT on
             print("STOVE OFF!")
             self.oven_dection_state.publish(Bool(False))
-            bounding_box_image = self.visualize_bbox([550, 800, 600, 850], COLORS["red"])
+            bounding_box_image = self.visualize_bbox([self.x_min, self.y_min, self.x_max, self.y_max], COLORS["red"])
             cv2.imwrite("bounding_box_image.png", bounding_box_image)
         else:
             # The oven light IS on
             print("STOVE ON!!!!!!!!!!!!!")
             self.oven_dection_state.publish(Bool(True))
-            bounding_box_image = self.visualize_bbox([550, 800, 600, 850], COLORS["green"])
+            bounding_box_image = self.visualize_bbox([self.x_min, self.y_min, self.x_max, self.y_max], COLORS["green"])
             cv2.imwrite("bounding_box_image.png", bounding_box_image)
     
 
@@ -135,7 +142,7 @@ class OvenPerception():
         Vizualize axis-aligned and rotated bounding boxes on the image
 
         Parameters:
-                    detection_bbox (list(list)): List of all axis aligned bounding boxes in the [(x_min, y_min), (x_max, y_max)] format
+                    detection_bbox (list): List of all axis aligned bounding boxes in the [x_min, y_min, x_max, y_max] format
                     color (tuple): Color of the bounding box
         Returns:
                     detection_image (image): Image with bounding box drawn on the image
