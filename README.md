@@ -9,6 +9,7 @@ This is the source code for my senior research project to perceive the items in 
 
 
 ## Notes
+- The azure_image_saver.py and oven_perception.py ROS nodes need to be in executable mode; use `chmod +x file_name.py`
 - The parameters for the bounding box surrounding the oven light can be found in oven_light_params.yaml. These parameters must be loaded into the ROS Raram Server from the config directory by running the following: 
 ```
 rosparam load oven_light_params.yaml
