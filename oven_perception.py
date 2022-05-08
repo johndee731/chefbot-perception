@@ -24,6 +24,7 @@ COLOR = (0, 255, 0)
 # Position for text beneath the bounding box
 ORG = (rospy.get_param("x_min"), rospy.get_param("y_max") + 30)
 DEQUE_SIZE = 30
+THRESHOLD = 0.20
 
 # 3-tuples are BGR, not RGB format
 COLORS = {"stove_light": {'lower_H': 1.5, 'upper_H': 178.5,
@@ -70,7 +71,8 @@ class OvenPerception():
         rospy.init_node('oven_perception')
 
         # Publishers
-        self.oven_dection_state = rospy.Publisher('/oven_perception/light_state', Bool, queue_size=5)
+        self.oven_detection_state = rospy.Publisher('/oven_perception/oven_state', Bool, queue_size=5)
+        self.oven_detection_image = rospy.Publisher('/oven_perception/bounded_image', Image, queue_size=10)
        
         # Subscribers
         self.rgb_img_sub = message_filters.Subscriber('/master/rgb/image_raw', Image)
@@ -86,7 +88,7 @@ class OvenPerception():
         self.y_max = rospy.get_param("y_max")
 
         # Deque used for sliding window of 30 frames counts
-        self.de = deque([0] * 30)
+        self.dq = deque([0] * 30)
 
         # main thread just waits now..
         rospy.spin()
@@ -112,28 +114,29 @@ class OvenPerception():
         print("Number of white pixels:")
         white_pixel_count = stove_masker.get_num_white_pixels(filtered_bounding_box_image)
         # Delete the oldest value off the Deque (found at the far left)
-        self.de.popleft()
+        self.dq.popleft()
         # Append the new value of the white pixels count found in the masked region to the far right
-        self.de.append(white_pixel_count)
+        self.dq.append(white_pixel_count)
         print(white_pixel_count)
         cv2.imwrite("filtered_bounding_box_image.png", filtered_bounding_box_image)
 
         # Count the percentage of occurrences of 0 in the list
-        zero_count = self.de.count(0) / DEQUE_SIZE
+        deque_zero_count = self.dq.count(0) / DEQUE_SIZE
 
         # If 20% or more of the white pixel counts in Deque are 0 (meaning less than 80% of the white pixel counts are not 0), then the stove is likely off
-        # Visualize image with green bounding box around stove light if it's found to be on; red bounding box if it's off
-        if zero_count >= 0.20:
+        if deque_zero_count >= THRESHOLD:
             # The oven light is NOT on
             print("STOVE OFF!")
             self.oven_dection_state.publish(Bool(False))
             bounding_box_image = self.visualize_bbox([self.x_min, self.y_min, self.x_max, self.y_max], COLORS["red"])
+            self.oven_detection_image.publish(self.cv2_to_imgmsg(bounding_box_image))
             cv2.imwrite("bounding_box_image.png", bounding_box_image)
         else:
             # The oven light IS on
-            print("STOVE ON!!!!!!!!!!!!!")
+            print("STOVE ON!")
             self.oven_dection_state.publish(Bool(True))
             bounding_box_image = self.visualize_bbox([self.x_min, self.y_min, self.x_max, self.y_max], COLORS["green"])
+            self.oven_detection_image.publish(self.cv2_to_imgmsg(bounding_box_image))
             cv2.imwrite("bounding_box_image.png", bounding_box_image)
     
 
